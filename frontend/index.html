@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Snip — URL Shortener</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & tokens ───────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0d0d;
+      --surface:   #161616;
+      --border:    #2a2a2a;
+      --accent:    #b9ff4b;        /* electric lime — the signature */
+      --accent-dim:#8bc934;
+      --text:      #f0f0f0;
+      --muted:     #6b6b6b;
+      --error:     #ff5f57;
+      --radius:    10px;
+      --font-body: 'Space Grotesk', sans-serif;
+      --font-mono: 'Space Mono', monospace;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    /* ── Layout ───────────────────────────────────── */
+    .card {
+      width: 100%;
+      max-width: 560px;
+    }
+
+    /* ── Header ───────────────────────────────────── */
+    .header {
+      margin-bottom: 2.5rem;
+      text-align: left;
+    }
+
+    .header__eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.6rem;
+      display: block;
+    }
+
+    .header__title {
+      font-size: clamp(2rem, 6vw, 3rem);
+      font-weight: 600;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+    }
+
+    .header__title span {
+      color: var(--accent);
+    }
+
+    .header__sub {
+      margin-top: 0.75rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    /* ── Form ─────────────────────────────────────── */
+    .form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 0.6rem;
+    }
+
+    .url-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      padding: 0.85rem 1rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .url-input::placeholder { color: var(--muted); }
+
+    .url-input:focus {
+      border-color: var(--accent);
+    }
+
+    .url-input.input--error {
+      border-color: var(--error);
+    }
+
+    .btn-shorten {
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius);
+      color: #0d0d0d;
+      cursor: pointer;
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.85rem 1.3rem;
+      white-space: nowrap;
+      transition: background 0.15s, transform 0.1s;
+      flex-shrink: 0;
+    }
+
+    .btn-shorten:hover  { background: var(--accent-dim); }
+    .btn-shorten:active { transform: scale(0.97); }
+
+    .btn-shorten:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .error-msg {
+      font-size: 0.82rem;
+      color: var(--error);
+      min-height: 1rem;
+      padding-left: 0.2rem;
+      display: none;
+    }
+
+    .error-msg.visible { display: block; }
+
+    /* ── Result card ──────────────────────────────── */
+    .result {
+      margin-top: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.2rem;
+      display: none;
+      animation: slideIn 0.22s ease;
+    }
+
+    .result.visible { display: block; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .result__label {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.7rem;
+    }
+
+    .result__row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .result__link {
+      flex: 1;
+      font-family: var(--font-mono);
+      font-size: 0.92rem;
+      color: var(--accent);
+      text-decoration: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .result__link:hover { text-decoration: underline; }
+
+    .btn-copy {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      cursor: pointer;
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 0.4rem 0.85rem;
+      transition: border-color 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+
+    .btn-copy:hover { border-color: var(--accent); color: var(--accent); }
+
+    .btn-copy.copied {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ── Divider ──────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1rem 0 0.9rem;
+    }
+
+    .original-url-label {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .original-url-label span {
+      color: var(--text);
+      font-size: 0.82rem;
+      display: block;
+      margin-top: 0.2rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ── Footer ───────────────────────────────────── */
+    footer {
+      margin-top: 3rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* ── Loading spinner inside button ───────────── */
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid #0d0d0d;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Responsive ───────────────────────────────── */
+    @media (max-width: 480px) {
+      .input-row { flex-direction: column; }
+      .btn-shorten { width: 100%; padding: 0.9rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .result, .spinner { animation: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <main class="card">
+
+    <header class="header">
+      <span class="header__eyebrow">URL Shortener</span>
+      <h1 class="header__title">Long link?<br><span>Snip it.</span></h1>
+      <p class="header__sub">Paste any URL and get a short link instantly.</p>
+    </header>
+
+    <!-- Form -->
+    <div class="form">
+      <div class="input-row">
+        <input
+          id="urlInput"
+          class="url-input"
+          type="url"
+          placeholder="https://your-very-long-url.com/goes/here"
+          autocomplete="off"
+          spellcheck="false"
+          aria-label="Long URL to shorten"
+        />
+        <button id="shortenBtn" class="btn-shorten" type="button">
+          Shorten
+        </button>
+      </div>
+      <p id="errorMsg" class="error-msg" role="alert" aria-live="polite"></p>
+    </div>
+
+    <!-- Result (hidden until a short URL is returned) -->
+    <div id="result" class="result" aria-live="polite" aria-label="Shortened URL result">
+      <p class="result__label">Your short link</p>
+      <div class="result__row">
+        <a id="shortLink" class="result__link" href="#" target="_blank" rel="noopener noreferrer"></a>
+        <button id="copyBtn" class="btn-copy" type="button" aria-label="Copy short URL">Copy</button>
+      </div>
+      <hr class="divider" />
+      <div class="original-url-label">
+        Original URL
+        <span id="originalUrl"></span>
+      </div>
+    </div>
+
+  </main>
+
+  <footer>Built with Flask · PostgreSQL · Docker</footer>
+
+  <script>
+    const urlInput   = document.getElementById('urlInput');
+    const shortenBtn = document.getElementById('shortenBtn');
+    const errorMsg   = document.getElementById('errorMsg');
+    const resultBox  = document.getElementById('result');
+    const shortLink  = document.getElementById('shortLink');
+    const originalUrl= document.getElementById('originalUrl');
+    const copyBtn    = document.getElementById('copyBtn');
+
+    /* ── Helpers ──────────────────────────────────── */
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.classList.add('visible');
+      urlInput.classList.add('input--error');
+    }
+
+    function clearError() {
+      errorMsg.classList.remove('visible');
+      urlInput.classList.remove('input--error');
+    }
+
+    function setLoading(isLoading) {
+      if (isLoading) {
+        shortenBtn.disabled = true;
+        shortenBtn.innerHTML = '<span class="spinner"></span>';
+      } else {
+        shortenBtn.disabled = false;
+        shortenBtn.textContent = 'Shorten';
+      }
+    }
+
+    function isValidUrl(str) {
+      try {
+        const url = new URL(str);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    }
+
+    function showResult(shortUrl, original) {
+      shortLink.href        = shortUrl;
+      shortLink.textContent = shortUrl;
+      originalUrl.textContent = original;
+      resultBox.classList.add('visible');
+      // Reset copy button label
+      copyBtn.textContent = 'Copy';
+      copyBtn.classList.remove('copied');
+    }
+
+    /* ── Shorten ──────────────────────────────────── */
+    async function handleShorten() {
+      clearError();
+      const raw = urlInput.value.trim();
+
+      if (!raw) {
+        showError('Please enter a URL.');
+        urlInput.focus();
+        return;
+      }
+
+      if (!isValidUrl(raw)) {
+        showError('Enter a valid URL starting with http:// or https://');
+        urlInput.focus();
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const response = await fetch('/shorten', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: raw }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          // Surface any error message from the Flask API
+          showError(data.error || 'Something went wrong. Please try again.');
+          return;
+        }
+
+        showResult(data.short_url, raw);
+
+      } catch (err) {
+        showError('Could not reach the server. Check your connection.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    /* ── Copy ─────────────────────────────────────── */
+    async function handleCopy() {
+      const url = shortLink.href;
+      try {
+        await navigator.clipboard.writeText(url);
+        copyBtn.textContent = 'Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.textContent = 'Copy';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      } catch {
+        // Fallback for browsers without clipboard API
+        const tmp = document.createElement('input');
+        tmp.value = url;
+        document.body.appendChild(tmp);
+        tmp.select();
+        document.execCommand('copy');
+        document.body.removeChild(tmp);
+        copyBtn.textContent = 'Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.textContent = 'Copy';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      }
+    }
+
+    /* ── Events ───────────────────────────────────── */
+    shortenBtn.addEventListener('click', handleShorten);
+    copyBtn.addEventListener('click', handleCopy);
+
+    // Allow Enter key in the input field
+    urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleShorten();
+    });
+
+    // Clear error on typing
+    urlInput.addEventListener('input', clearError);
+  </script>
+
+</body>
+</html>
