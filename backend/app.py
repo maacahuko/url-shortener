@@ -164,6 +164,8 @@ def redirect_to_original(short_code):
 
     return redirect(row["original_url"], code=302)
 
+# Ensure the table exists whether run directly or via Gunicorn
+init_db()
 
 # ── Startup ────────────────────────────────────────────────────
 if __name__ == "__main__":
